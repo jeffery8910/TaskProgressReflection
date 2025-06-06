@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>進度反問器 (互動卡片版)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+        }
+        /* 自訂滑桿樣式 */
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            background: #3b82f6;
+            cursor: pointer;
+            border-radius: 50%;
+            margin-top: -8px;
+        }
+        input[type=range]::-moz-range-thumb {
+            width: 24px;
+            height: 24px;
+            background: #3b82f6;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 flex items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-2xl mx-auto">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 md:p-8">
+            
+            <header class="text-center mb-8">
+                <h1 class="text-3xl font-bold text-slate-800 dark:text-white">進度反問器</h1>
+                <p class="text-slate-500 dark:text-slate-400 mt-2">將問題轉為互動卡片，逐一檢視你的進度。</p>
+            </header>
+
+            <!-- 輸入區 -->
+            <div class="space-y-6">
+                <div>
+                    <label for="task" class="text-lg font-semibold text-slate-700 dark:text-slate-300 block mb-2">你的目標或任務是什麼？</label>
+                    <textarea id="task" rows="3" class="w-full p-3 bg-slate-100 dark:bg-slate-700 border-2 border-transparent focus:border-blue-500 focus:ring-0 rounded-lg text-slate-800 dark:text-slate-200 transition" placeholder="例如：完成第三季度的產品開發計畫..."></textarea>
+                </div>
+
+                <div>
+                    <label for="progress" class="text-lg font-semibold text-slate-700 dark:text-slate-300 block mb-3">目前的進度大約是多少？</label>
+                    <div class="flex items-center gap-4">
+                        <input id="progress" type="range" min="0" max="100" value="0" class="w-full h-2 bg-slate-200 dark:bg-slate-600 rounded-lg appearance-none cursor-pointer">
+                        <span id="progress-value" class="text-xl font-bold text-blue-600 dark:text-blue-400 w-16 text-center">0%</span>
+                    </div>
+                </div>
+
+                <button id="generate-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg text-lg transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-800">
+                    生成提問卡片
+                </button>
+            </div>
+        </div>
+
+        <!-- 輸出區 -->
+        <div id="output-container" class="mt-8 bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 md:p-8 hidden">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-slate-800 dark:text-white">關鍵問題檢查清單</h2>
+                 <button id="copy-btn" class="flex items-center gap-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 font-semibold py-2 px-4 rounded-lg transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-clipboard-check" viewBox="0 0 16 16">
+                      <path fill-rule="evenodd" d="M10.854 7.146a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 1 1 .708-.708L7.5 9.793l2.646-2.647a.5.5 0 0 1 .708 0z"/>
+                      <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
+                      <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
+                    </svg>
+                    <span id="copy-text">複製結果</span>
+                </button>
+            </div>
+            <div id="card-deck" class="space-y-4">
+                <!-- 問題卡片將會動態插入這裡 -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const progressSlider = document.getElementById('progress');
+        const progressValue = document.getElementById('progress-value');
+        const generateBtn = document.getElementById('generate-btn');
+        const outputContainer = document.getElementById('output-container');
+        const cardDeck = document.getElementById('card-deck');
+        const taskInput = document.getElementById('task');
+        const copyBtn = document.getElementById('copy-btn');
+        const copyText = document.getElementById('copy-text');
+
+        progressSlider.addEventListener('input', (event) => {
+            progressValue.textContent = `${event.target.value}%`;
+        });
+
+        const questionSets = {
+            0: { title: "蓄勢待發 (0%)", questions: ["🎯 最終要達成的具體目標是什麼？是否清晰、可衡量？", "🚀 完成這項任務的第一步，最關鍵的行動是什麼？", "📚 我們需要哪些必要的資訊、資源或權限才能開始？", "🚧 根據你的經驗，預見到最大的潛在風險或障礙是什麼？", "🤝 有哪些人需要參與進來？誰是關鍵的利益相關者？"]},
+            25: { title: "初步探索 (1-25%)", questions: ["🏃‍ 第一步執行得順利嗎？初步結果是否符合預期？", "🤔 有沒有遇到任何意料之外的困難或發現？", "🧭 目前的執行方向正確嗎？是否需要微調計畫？", "📈 下一步的具體計畫是什麼？如何推進到下一個里程碑？", "✅ 目前完成的部分，品質如何？是否達到標準？"]},
+            50: { title: "中途檢視 (26-50%)", questions: ["💪 目前為止最大的進展是什麼？最讓你感到振奮的成果是？", "🧗‍ 哪個部分讓你卡住了？需要什麼支援才能突破瓶頸？", "⏳ 和原訂計畫相比，進度是超前、持平還是落後？原因是什麼？", "🗺️ 是否需要重新評估剩下的任務和所需時間？", "🎯 下一個重要的里程碑是什麼？如何確保能順利達成？"]},
+            75: { title: "攻克核心 (51-75%)", questions: ["🎉 任務的核心部分是否已經完成？品質是否令人滿意？", "⛰️ 剩下的任務中，最具挑戰性的是哪一項？應對策略是什麼？", "👀 有沒有任何部分需要尋求他人協作或進行初步審核？", "🔍 離最終目標，還缺少哪些關鍵環節？", "💡 目前的成果雛形，是否能展示給相關人員以獲取回饋？"]},
+            99: { title: "收尾階段 (76-99%)", questions: ["🧐 所有細節都檢查過了嗎？有沒有被忽略的角落？", "✨ 最後的潤色和收尾工作還有哪些？", "📦 準備好交付或展示了嗎？交付的標準和形式是什麼？", "📢 如何向相關人員有效地溝通這次的成果？", "🤔 整個過程中，有什麼是未來可以做得更好的地方？"]},
+            100: { title: "完成復盤 (100%)", questions: ["🏆 最終成果是否完全達成了最初設定的目標？", "🌟 整個過程中，最有價值的收穫或學習是什麼？", "🔄 這次的成功經驗（或教訓），有哪些可以被複製到未來的專案中？", "📚 成果與過程是否已妥善歸檔，方便日後查閱？", "🎉 我們該如何慶祝這次的成功？"]}
+        };
+
+        generateBtn.addEventListener('click', () => {
+            const progress = parseInt(progressSlider.value, 10);
+            let questionSetKey;
+
+            if (progress === 0) questionSetKey = 0;
+            else if (progress <= 25) questionSetKey = 25;
+            else if (progress <= 50) questionSetKey = 50;
+            else if (progress <= 75) questionSetKey = 75;
+            else if (progress < 100) questionSetKey = 99;
+            else questionSetKey = 100;
+
+            const selectedSet = questionSets[questionSetKey];
+            
+            cardDeck.innerHTML = ''; // 清空舊卡片
+            selectedSet.questions.forEach(q => {
+                const card = document.createElement('div');
+                card.className = 'question-card bg-slate-100 dark:bg-slate-700/50 p-4 rounded-lg transition-all duration-300 border-l-4 border-slate-300 dark:border-slate-500';
+                card.dataset.answer = "未回答";
+
+                const questionText = document.createElement('p');
+                questionText.className = 'mb-4 text-slate-800 dark:text-slate-200 text-lg';
+                questionText.textContent = q;
+
+                const buttonGroup = document.createElement('div');
+                buttonGroup.className = 'flex flex-col sm:flex-row gap-3';
+
+                const yesBtn = document.createElement('button');
+                yesBtn.className = 'yes-btn w-full text-center py-2 px-4 rounded-md bg-white dark:bg-slate-600 hover:bg-green-100 dark:hover:bg-green-800/50 border border-slate-300 dark:border-slate-500 transition';
+                yesBtn.innerHTML = '<span class="font-semibold text-green-600 dark:text-green-400">✅ 是 / 已完成</span>';
+
+                const noBtn = document.createElement('button');
+                noBtn.className = 'no-btn w-full text-center py-2 px-4 rounded-md bg-white dark:bg-slate-600 hover:bg-red-100 dark:hover:bg-red-800/50 border border-slate-300 dark:border-slate-500 transition';
+                noBtn.innerHTML = '<span class="font-semibold text-red-600 dark:text-red-400">❌ 否 / 未完成</span>';
+
+                yesBtn.onclick = () => {
+                    card.dataset.answer = "是";
+                    card.classList.remove('border-slate-300', 'dark:border-slate-500', 'border-red-500', 'dark:border-red-400');
+                    card.classList.add('border-green-500', 'dark:border-green-400');
+                    yesBtn.classList.add('ring-2', 'ring-green-500');
+                    noBtn.classList.remove('ring-2', 'ring-red-500');
+                };
+
+                noBtn.onclick = () => {
+                    card.dataset.answer = "否";
+                    card.classList.remove('border-slate-300', 'dark:border-slate-500', 'border-green-500', 'dark:border-green-400');
+                    card.classList.add('border-red-500', 'dark:border-red-400');
+                    noBtn.classList.add('ring-2', 'ring-red-500');
+                    yesBtn.classList.remove('ring-2', 'ring-green-500');
+                };
+
+                buttonGroup.appendChild(yesBtn);
+                buttonGroup.appendChild(noBtn);
+                card.appendChild(questionText);
+                card.appendChild(buttonGroup);
+                cardDeck.appendChild(card);
+            });
+
+            outputContainer.style.display = 'block';
+            outputContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            
+            copyText.textContent = '複製結果';
+            copyBtn.classList.remove('bg-green-600', 'dark:bg-green-700', 'text-white');
+        });
+
+        copyBtn.addEventListener('click', () => {
+            let textToCopy = `📋 **任務檢查清單**\n\n`;
+            textToCopy += `**目標：** ${taskInput.value.trim() || '未填寫'}\n`;
+            textToCopy += `**提報進度：** ${progressSlider.value}%\n\n`;
+            textToCopy += `--- \n\n`;
+
+            const cards = document.querySelectorAll('.question-card');
+            cards.forEach((card, index) => {
+                const question = card.querySelector('p').textContent.substring(2).trim(); // 移除表情符號
+                const answer = card.dataset.answer;
+                let answerIcon = '⚪️';
+                if(answer === "是") answerIcon = '✅';
+                if(answer === "否") answerIcon = '❌';
+
+                textToCopy += `${index + 1}. **${question}**\n   回答：${answerIcon} ${answer}\n\n`;
+            });
+
+            const textArea = document.createElement('textarea');
+            textArea.value = textToCopy;
+            // 讓 textarea 在螢幕外，避免畫面跳動
+            textArea.style.position = 'absolute';
+            textArea.style.left = '-9999px';
+            document.body.appendChild(textArea);
+            textArea.select();
+            
+            try {
+                document.execCommand('copy');
+                copyText.textContent = '已複製!';
+                copyBtn.classList.add('bg-green-600', 'dark:bg-green-700', 'text-white');
+            } catch (err) {
+                copyText.textContent = '複製失敗';
+                console.error('複製失敗:', err);
+            }
+            
+            document.body.removeChild(textArea);
+        });
+
+    </script>
+</body>
+</html>
+
